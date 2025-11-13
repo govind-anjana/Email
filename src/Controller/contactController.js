@@ -4,7 +4,7 @@ import ContactModel from "../model/ContactModel.js";
 
 dotenv.config();
 
-// SMTP transporter
+// SMTP transporter (Mailtrap / Gmail deploy-safe)
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: Number(process.env.SMTP_PORT || 587),
@@ -30,6 +30,16 @@ export const createContact = async (req, res) => {
   try {
     const { username, email, phone, message } = req.body;
 
+    // Check for duplicate email
+    const existing = await ContactModel.findOne({ email });
+    if (existing) {
+      return res.status(400).json({
+        success: false,
+        message: "Email already exists",
+        contact: existing,
+      });
+    }
+
     // Save to DB
     const newContact = new ContactModel({ username, email, phone, message });
     await newContact.save();
@@ -42,10 +52,13 @@ export const createContact = async (req, res) => {
       text: buildContactText({ username, email, phone, message }),
       replyTo: email || undefined,
     };
+
+    // Verify SMTP
     transporter.verify((error, success) => {
-  if (error) console.log("SMTP Error:", error);
-  else console.log("SMTP Ready:", success);
-});
+      if (error) console.log("SMTP Error:", error);
+      else console.log("SMTP Ready:", success);
+    });
+
     // Send email
     const info = await transporter.sendMail(mailOptions);
 
@@ -55,6 +68,7 @@ export const createContact = async (req, res) => {
       mailInfo: { messageId: info.messageId },
       contact: newContact,
     });
+
   } catch (error) {
     console.error("createContact error:", error);
     res.status(500).json({ success: false, error: error.message });
