@@ -5,14 +5,23 @@ import ContactModel from "../model/ContactModel.js";
 dotenv.config();
 //  Create new contact (POST)
 export const createContact = async (req, res) => {
- try {
+  try {
     const { username, email, phone, message } = req.body;
 
-    // 1️⃣ Save contact to database
+    // 1️⃣ Check duplicate email
+    const existingContact = await ContactModel.findOne({ email });
+    if (existingContact) {
+      return res.status(400).json({
+        success: false,
+        message: "This email is already registered!",
+      });
+    }
+
+    // 2️⃣ Save contact to database
     const newContact = new ContactModel({ username, email, phone, message });
     await newContact.save();
 
-    // 2️⃣ Gmail transporter (Railway-compatible)
+    // 3️⃣ Gmail transporter (Railway-compatible)
     const transporter = nodemailer.createTransport({
       host: "smtp.gmail.com",
       port: 465,
@@ -23,9 +32,9 @@ export const createContact = async (req, res) => {
       },
     });
 
-    // 3️⃣ Mail content
+    // 4️⃣ Mail content
     const mailOptions = {
-      from: process.env.EMAIL_USER,   // Must be your Gmail
+      from: process.env.EMAIL_USER,   // Admin Gmail
       replyTo: email,                 // User email
       to: process.env.EMAIL_USER,     // Admin receives mail
       subject: `New contact from ${username}`,
@@ -37,13 +46,13 @@ export const createContact = async (req, res) => {
       `,
     };
 
-    // 4️⃣ Send mail
+    // 5️⃣ Send mail
     transporter.sendMail(mailOptions, (err, info) => {
       if (err) console.log("MAIL ERROR:", err);
       else console.log("MAIL SENT:", info.response);
     });
 
-    // 5️⃣ Respond with saved contact
+    // 6️⃣ Respond with saved contact
     res.status(200).json({
       success: true,
       message: "Contact saved & email sent successfully!",
