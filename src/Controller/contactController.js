@@ -4,52 +4,59 @@ import ContactModel from "../model/ContactModel.js";
 
 dotenv.config();
 
+// SMTP transporter
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT || 587),
+  secure: false,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
+
+// Build simple text email
+const buildContactText = ({ username, email, phone, message }) => `
+New Contact / User Details
+Name: ${username || "-"}
+Email: ${email || "-"}
+Phone: ${phone || "-"}
+Message: ${message || "-"}
+
+Received at: ${new Date().toLocaleString()}
+`;
+
 export const createContact = async (req, res) => {
   try {
     const { username, email, phone, message } = req.body;
 
-    // 1️⃣ Save contact to database
+    // Save to DB
     const newContact = new ContactModel({ username, email, phone, message });
     await newContact.save();
 
-    // 2️⃣ Gmail transporter (Railway-friendly)
-    const transporter = nodemailer.createTransport({
-      service: "gmail", // easier than host/port on Railway
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS, // Gmail App Password
-      },
-    });
-
-    // 3️⃣ Mail content
+    // Prepare email
     const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: process.env.EMAIL_USER,
-      replyTo: email,
-      subject: `New contact from ${username}`,
-      text: `
-Username: ${username}
-Email: ${email}
-Phone: ${phone}
-Message: ${message}
-      `,
+      from: `"Website Contact" <${process.env.SMTP_USER}>`,
+      to: process.env.TO_EMAIL,
+      subject: `New Contact: ${username || "Unknown"}`,
+      text: buildContactText({ username, email, phone, message }),
+      replyTo: email || undefined,
     };
+    transporter.verify((error, success) => {
+  if (error) console.log("SMTP Error:", error);
+  else console.log("SMTP Ready:", success);
+});
+    // Send email
+    const info = await transporter.sendMail(mailOptions);
 
-    // 4️⃣ Send email
-    await transporter.sendMail(mailOptions);
-
-    // 5️⃣ Respond with newly created contact
-    res.status(200).json({
+    res.status(201).json({
       success: true,
-      message: "Contact saved & email sent successfully!",
-      data: newContact,
+      message: "Contact saved and email sent",
+      mailInfo: { messageId: info.messageId },
+      contact: newContact,
     });
   } catch (error) {
-    console.error("Error sending email:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to save contact or send email",
-      error: error.message,
-    });
+    console.error("createContact error:", error);
+    res.status(500).json({ success: false, error: error.message });
   }
 };
