@@ -8,6 +8,10 @@ export const createContact = async (req, res) => {
   try {
     const { username, email, phone, message } = req.body;
 
+    // Save to database
+    const newContact = new ContactModel({ username, email, phone, message });
+    await newContact.save();
+
     // Gmail transporter
     const transporter = nodemailer.createTransport({
       service: "gmail",
@@ -34,12 +38,13 @@ export const createContact = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Email sent successfully to admin!",
+      message: "Contact saved and email sent successfully!",
+      data: newContact, // return saved data
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: "Failed to send email",
+      message: "Failed to save contact or send email",
       error: error.message,
     });
   }

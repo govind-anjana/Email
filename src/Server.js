@@ -18,10 +18,10 @@ mongoose
 
 
 // ➕ Create Contact
-app.post("/api/contact", createContact)
+app.post("/contact", createContact);
 
 // 📄 Get All Contacts (Admin Only)
-app.get("/api/contact",getContacts)
+app.get("/contact",getContacts)
 // Default route
 app.get("/", (req, res) => {
   res.send("🚀 Server is running successfully!");
