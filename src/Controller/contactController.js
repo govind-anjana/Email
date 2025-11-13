@@ -8,33 +8,33 @@ export const createContact = async (req, res) => {
   try {
     const { username, email, phone, message } = req.body;
 
-    // 1️⃣ Check duplicate email
-    const existingContact = await ContactModel.findOne({ email });
-    if (existingContact) {
-      return res.status(400).json({
-        success: false,
-        message: "This email is already registered!",
-      });
-    }
+    // ✅ Optional: Remove duplicate check if you want same email multiple times
+    // const existingContact = await ContactModel.findOne({ email });
+    // if (existingContact) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "This email is already registered!",
+    //   });
+    // }
 
-    // 2️⃣ Save contact to database
+    // 1️⃣ Save contact to database
     const newContact = new ContactModel({ username, email, phone, message });
     await newContact.save();
 
-    // 3️⃣ Gmail transporter (Railway-compatible)
+    // 2️⃣ Gmail transporter (Railway-friendly)
     const transporter = nodemailer.createTransport({
       host: "smtp.gmail.com",
       port: 465,
       secure: true, // SSL
       auth: {
         user: process.env.EMAIL_USER, // Your Gmail
-        pass: process.env.EMAIL_PASS, // App Password
+        pass: process.env.EMAIL_PASS, // Gmail App Password
       },
     });
 
-    // 4️⃣ Mail content
+    // 3️⃣ Mail content
     const mailOptions = {
-      from: process.env.EMAIL_USER,   // Admin Gmail
+      from: process.env.EMAIL_USER,   // Must be your Gmail
       replyTo: email,                 // User email
       to: process.env.EMAIL_USER,     // Admin receives mail
       subject: `New contact from ${username}`,
@@ -46,13 +46,13 @@ export const createContact = async (req, res) => {
       `,
     };
 
-    // 5️⃣ Send mail
+    // 4️⃣ Send mail
     transporter.sendMail(mailOptions, (err, info) => {
       if (err) console.log("MAIL ERROR:", err);
       else console.log("MAIL SENT:", info.response);
     });
 
-    // 6️⃣ Respond with saved contact
+    // 5️⃣ Respond with saved contact
     res.status(200).json({
       success: true,
       message: "Contact saved & email sent successfully!",
